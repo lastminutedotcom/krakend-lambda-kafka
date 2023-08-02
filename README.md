@@ -165,7 +165,7 @@ The output of this lambda is a JSON Object with the following structure:
   * `400`: One expected input attribute is missing or the `body` does not match with the expected protobuf schema.
   * `500`: General error
 * `message`: `String` Message that gives more information about the status code, in the case of `statusCode` being `200`,
-yoo will get always `ok`, in any other case, the message will explain a little why the lambda is returning that code. 
+you will get always `ok`, in any other case, the message will explain a little why the lambda is returning that code. 
 
 Example:
 
