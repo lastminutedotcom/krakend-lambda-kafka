@@ -155,13 +155,13 @@ the body will be validated against the schema with the same name published in AW
 the lambda will use that schema to dynamically generate the protobuf message.
 
 ### Output
-Since this lambda is not an HTTP service, it is not possible to return http codes as a normal
+Since this lambda is not an HTTP service, it is not possible to return HTTP codes as a normal
 microservice would however, this lambda uses the HTTP standard codes to indicate errors.
 
 The output of this lambda is a JSON Object with the following structure:
 
 * `statusCode`: `String` that indicate the status of the operation, the possible values are:
-  * `200`: The message as published
+  * `200`: The message was published.
   * `400`: One expected input attribute is missing or the `body` does not match with the expected protobuf schema.
   * `500`: General error
 * `message`: `String` Message that gives more information about the status code, in the case of `statusCode` being `200`,
