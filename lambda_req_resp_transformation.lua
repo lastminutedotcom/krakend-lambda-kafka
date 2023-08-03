@@ -3,7 +3,6 @@ function lambda_request_transformation( req )
         local reqBody = req:body();
         local reqHeaders = req:headers("message-headers");
         local messageKey = req:headers("message-key");
-        print("message-key value-->"..messageKey)
 		local path = req:path();
 
 
@@ -11,7 +10,6 @@ function lambda_request_transformation( req )
     	local topicName = get_topicname_frompath(path)
 
         local newRequestBody = generate_body_as_json(reqBody,jsonHeaders,topicName,messageKey)
-        print("the new body:"..newRequestBody)
         req:body(newRequestBody);
 end
 
@@ -34,7 +32,6 @@ function generate_body_as_json(body,headers,topic,messageKey)
         table.insert(bodyAsTable, string.format("\"%s\":%s", "headers", headers));
         table.insert(bodyAsTable, string.format("\"%s\":\"%s\"", "topicName", topic));
         if not (not messageKey or  messageKey == '') then
-        	print("message-key present-->"..messageKey)
         	table.insert(bodyAsTable, string.format("\"%s\":\"%s\"", "key", messageKey));
         end
         return "{" .. table.concat(bodyAsTable, ",") .. "}";
@@ -54,7 +51,6 @@ function lambda_response_transformation( resp )
     local responseStatusCode = responseData:get("statusCode");
 
    if not (responseStatusCode == nil) and not (responseStatusCode == '200') then
-          print("dentro del if");
           local responseMessage = responseData:get("message");
           --TODO validate if message is not nil
           custom_error(responseMessage,tonumber(responseStatusCode));

@@ -184,4 +184,4 @@ publish messages in kafka though a simple HTTP interface, to know more about how
 configure this integration, please see the [integration_with_krakend.md](integration_with_krakend.md).
 
 It is also possible to use this lambda as a generic way to publish messages in kafka,there is no limitation in
-usage as long as the input structure is used and the deployment configuration is done.
+usage as long as the input structure is used and the deployment configuration is follow.
