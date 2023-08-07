@@ -1,0 +1,7 @@
+syntax = "proto3";
+package poc-ttn-602.events;
+option java_package = "com.lastminute.poc-ttn-602.events";
+
+message SampleEvent {
+  string some_message = 1; // A generic field of the event of string type
+}

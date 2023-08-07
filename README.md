@@ -1,92 +1,196 @@
-# krakend-lambda-kafka
+# KrakenD-lambda-kafka
 
+This project holds the code of a lambda in charge of receiving a json request,
+transform it into a protobuf, extract headers and key if present and, publish it into a given kafka cluster.
 
+## Table of Contents
+1. [Deployment Configuration](#deployment-configuration)
+   1. [Deployment configuration using the Kafka Governance Process](#deployment-configuration-using-the-kafka-governance-process)
+   2. [Environment Variables](#environment-variables)
+2. [Expected Input and output](#expected-input-and-output)
+   1. [Input](#input)
+      1. [Input Validation](#input-validation)
+   2. [Output](#output)
+3. [Invocation](#invocation)
 
-## Getting started
+## Deployment Configuration
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+* This lambda is intended to run **in the same VPC where the MSK cluster is**.
+* The role used by this lambda should have attached policies that allow it to connect to the MSK cluster and publish messages in the topic
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "kafka-cluster:Connect",
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:WriteData"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:kafka:eu-central-1:${account-id}:cluster/${cluster-name}/*",
+                "arn:aws:kafka:eu-central-1:${account-id}:topic/${cluster-name}/*/${topic-name}"
+            ]
+        }
+    ]
+}
+```
+* Also, it is required to add a policy that allows to write data idempotently
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["kafka-cluster:WriteDataIdempotently"],
+            "Resource": ["arn:aws:kafka:*:${account-id}:cluster/poc-ttn-602-kafka-cluster/*" ]
+        }
+    ]
+}
+```
+* In order to be allowed to connect to the cluster, is also required that the security group used by the lambda is allowed to
+connect to the cluster ports, for doing this, go to the MSK cluster security group and add the lambda security group id as source.
+* Also is expected that each topic has a schema published in AWS Glue in the same account where the VPC is,
+this schema should have the same name as the topic. For accessing the registry, it is required to have the following policy attached:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.lastminute.com/architecture/poc/krakend-lambda-kafka.git
-git branch -M main
-git push -uf origin main
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "glue:GetSchemaVersionsDiff",
+                "glue:GetSchema",
+                "glue:GetSchemaByDefinition"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:glue:eu-central-1:${account-id}:registry/${registry-name}",
+                "arn:aws:glue:eu-central-1:${account-id}:schema/${registry-name}/*"
+            ]
+        },
+        {
+            "Action": [
+                "glue:GetSchemaVersion"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+```
+### Deployment configuration using the Kafka Governance Process
+
+If this lambda is going to publish messages on an MSK created using the Kafka Governance Process, the configuration is as follows:
+
+For allowing the Lambda to publish messages and to access the Glue Registry:
+
+1. Open the `terraform.tfvars` in the kafka governance process project and search for the `kafka_topics_configuration` section
+2.  in the `roles_grants` add the role used by the lambda adding the `w` as grant, like this example:
+```
+ {
+    role   = "krakend-lambda-kafka-role-op993qgu",
+    grants = ["w"]
+  }
+```
+3. Repeat the 2nd step for each topic required.
+
+For allowing the lambda to establish a connection with the cluster:
+
+1. Open the `terraform.tfvars` in the kafka governance process project and search for the `cluster_ingress` section
+    
+2. Locate the `ingress_with_source_security_groups` and add the security group id in the array as follows:
+```
+    /**
+        lambda security group = sg-0a4f3903dde4f745e
+        since is an array, it is possible to add multiple SG ids, just separate them by ,
+   **/
+   ingress_with_source_security_groups = ["sg-0a4f3903dde4f745e"]
 ```
 
-## Integrate with your tools
+*NOTE: For more information on how to configure the variables in the `terraform.tfvars` file in the kafka governance process project
+see the README.md file on that project*
 
-- [ ] [Set up project integrations](https://gitlab.lastminute.com/architecture/poc/krakend-lambda-kafka/-/settings/integrations)
+### Environment Variables
+It is required to configure the following environment variables:
 
-## Collaborate with your team
+* `GLUE_REGISTRY_NAME`: Holds the name of the AWS GLue registry to use
+* `KAFKA_BOOSTRAP_SERVERS` Kafka boostrap servers
+* `REGION`: AWS Region where is being deployed, example: `eu-central-1`
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## Expected Input and output
 
-## Test and Deploy
+This lambda expects a specific json input in order to be able to publish messages on the MSK also, it always returns the same
+json as response, indicating the status of the operation.
 
-Use the built-in continuous integration in GitLab.
+### Input
+The expected input is a `JSON object` with the following structure
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+* `body`: (**Required**) `JSON Object` that holds the message to be published on the MSK
+* `headers`:(**Optional**) `JSON Object` that holds the headers to add to the message, The JSON Object
+can only have pairs of key, values both in stings, no actual object structure is allowed, example:
+```
+ headers: {
+    "my_key":"myvalue",
+    "my_other_key:"42" 
+ }
+```
+* `topicName`: (**Required**) `String` with the actual name of the topic
+* `key`: :(**Optional**) `String` that holds the key to add to the message
 
-***
+Full Example:
 
-# Editing this README
+```
+{
+    "body":{
+        "sample_message":"hello world"
+    },
+    "headers": {
+        "my_key":"myvalue",
+        "my_other_key:"42" 
+    },
+    topicName:"MyTopic",
+    "key":"messageKey"
+}
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+#### Input Validation
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+This lambda will return an error response if any of the required fields described before are missing also,
+the body will be validated against the schema with the same name published in AWS Glue. This validation is required since
+the lambda will use that schema to dynamically generate the protobuf message.
 
-## Name
-Choose a self-explaining name for your project.
+### Output
+Since this lambda is not an HTTP service, it is not possible to return HTTP codes as a normal
+microservice would however, this lambda uses the HTTP standard codes to indicate errors.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+The output of this lambda is a JSON Object with the following structure:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+* `statusCode`: `String` that indicate the status of the operation, the possible values are:
+  * `200`: The message was published.
+  * `400`: One expected input attribute is missing or the `body` does not match with the expected protobuf schema.
+  * `500`: General error
+* `message`: `String` Message that gives more information about the status code, in the case of `statusCode` being `200`,
+you will get always `ok`, in any other case, the message will explain a little why the lambda is returning that code. 
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Example:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```
+{
+    "statusCode":"200",
+    "message": "ok"
+}
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## Invocation
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+This lambda is intended to be used in conjunction with KrakenD as a way to
+publish messages in kafka though a simple HTTP interface, to know more about how to
+configure this integration, please see the [integration_with_krakend.md](integration_with_krakend.md).
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+It is also possible to use this lambda as a generic way to publish messages in kafka,there is no limitation in
+usage as long as the input structure is used and the deployment configuration is follow.
