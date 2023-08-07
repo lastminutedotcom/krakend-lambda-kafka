@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: kafka Event Example endpoint - OpenAPI 3.0
+  version: "1.0"
+paths:
+  /domain/events/v1/SampleEvent:
+    post:
+      summary: Adds a new sample event
+      description: Adds a new event, the final part of the post represent the name of the event
+      parameters:
+        - in: header
+          name: message-headers
+          description: "Headers that will be attached to the event, should follows the pattern: ([A-Za-z0-9-_]+=[A-Za-z0-9-_]+(,)*)"
+          example: "my_header=myvalue,my-other-header=12,another=true"
+          schema:
+            type: string
+            pattern: "([A-Za-z0-9-_]+=[A-Za-z0-9-_]+(,)*)"
+          required: false
+        - in: header
+          name: message-key
+          description: "key that will be added to the event, should follows the pattern:"
+          example: "my_key=myvalue"
+          schema:
+            type: string
+            pattern: "^([A-Za-z0-9-_]+=[A-Za-z0-9-_]+)$"
+          required: false
+      requestBody:
+        description: Create a new event SampleEvent
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SampleEvent'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Invalid input
+        '500':
+          description: General Error
+components:
+  schemas:
+    SampleEvent:
+      description: "Here is where the definition of the event should be, this should match with the protobuf schema published in AWS Glue"
+      type: object
+      properties:
+        some_message:
+          type: string
+          example: "my example message"

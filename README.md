@@ -3,6 +3,15 @@
 This project holds the code of a lambda in charge of receiving a json request,
 transform it into a protobuf, extract headers and key if present and, publish it into a given kafka cluster.
 
+## Table of Contents
+1. [Deployment Configuration](#deployment-configuration)
+   1. [Deployment configuration using the Kafka Governance Process](#deployment-configuration-using-the-kafka-governance-process)
+   2. [Environment Variables](#environment-variables)
+2. [Expected Input and output](#expected-input-and-output)
+   1. [Input](#input)
+      1. [Input Validation](#input-validation)
+   2. [Output](#output)
+3. [Invocation](#invocation)
 
 ## Deployment Configuration
 

@@ -15,6 +15,15 @@ responses using [Lua Scripts](https://www.krakend.io/docs/endpoints/lua/?gclid=C
 The idea is to combine the lambda invocation with the request/response transformations in order to be able to expose a simple POST endpoint and in the following sections
 will be explained how to do it
 
+## Table of Contents
+1. [Interaction](#interaction)
+2. [KrakenD Configuration](#krakend-configuration)
+   1. [AWS IAM User](#aws-iam-user)
+   2. [Lua Transformation](#lua-transformation)
+   3. [krakend.json File Configuration](#krakendjson-file-configuration)
+   4. [Endpoint Convention](#endpoint-convention)
+   5. [Open API definition](#open-api-definition)
+
 ## Interaction
 The following image shows how KrakenD, the Lambda, the MSK cluster and the GLue registry interact:
 
@@ -118,3 +127,7 @@ In order to be able to extract the headers, key and topic name from the request 
 
 There is no restriction on the payload, you can send any JSON version of your message but be aware that the Lambda will validate the payload
 against the schema.
+
+#### Open API definition
+Here is an example of an openapi definition that can be used for defining events endpoints:
+[openapi-example.yaml](openapi-example.yaml)
